@@ -222,4 +222,6 @@ def convert_pdf_to_word(pdf_path: str, word_path: str):
         doc.add_paragraph(text)
     doc.save(word_path)
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
+  
