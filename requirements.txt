@@ -2,4 +2,6 @@ flask
 gunicorn
 PyPDF2
 PyMuPDF
-docx
+python-docx
+Pillow
+
