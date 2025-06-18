@@ -8,4 +8,4 @@ pdfplumber
 pandas
 numpy
 pytesseract
-cv2
+opencv-python
