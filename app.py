@@ -11,6 +11,15 @@ import fitz  # PyMuPDF
 from docx import Document
 from PIL import Image
 import io
+import pdfplumber
+import pandas as pd
+import pytesseract
+import cv2
+import numpy as np
+from pdf2image import convert_from_path
+from PIL import Image
+from docx2pdf import convert
+from PyPDF2 import PdfReader, PdfWriter
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
@@ -69,7 +78,81 @@ HTML_TEMPLATE = '''
           <button type="submit" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">Convert</button>
         </form>
       </div>
-    </div>
+    
+    
+    <div class="bg-white p-4 rounded-lg shadow-md text-center">
+  <h2 class="text-xl font-semibold text-blue-500">PDF to Excel</h2>
+  <form action="/pdf_to_excel" method="post" enctype="multipart/form-data" onsubmit="showLoading(this)">
+    <input type="file" name="pdf" accept="application/pdf" class="mt-2 block mx-auto" required>
+    <button type="submit" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">Convert</button>
+  </form>
+</div>
+
+<div class="bg-white p-4 rounded-lg shadow-md text-center">
+  <h2 class="text-xl font-semibold text-blue-500">OCR Image to Word</h2>
+  <form action="/ocr_image_to_docx" method="post" enctype="multipart/form-data" onsubmit="showLoading(this)">
+    <input type="file" name="image" accept="image/*" class="mt-2 block mx-auto" required>
+    <button type="submit" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">Convert</button>
+  </form>
+</div>
+<div class="bg-white p-4 rounded-lg shadow-md text-center">
+  <h2 class="text-xl font-semibold text-blue-500">JPG to PDF</h2>
+  <form action="/jpg_to_pdf" method="post" enctype="multipart/form-data" onsubmit="showLoading(this)">
+    <input type="file" name="images" accept=".jpg,.jpeg" class="mt-2 block mx-auto" multiple required>
+    <button type="submit" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">Convert</button>
+  </form>
+</div>
+
+<div class="bg-white p-4 rounded-lg shadow-md text-center">
+  <h2 class="text-xl font-semibold text-blue-500">Word to PDF</h2>
+  <form action="/word_to_pdf" method="post" enctype="multipart/form-data" onsubmit="showLoading(this)">
+    <input type="file" name="word" accept=".docx" class="mt-2 block mx-auto" required>
+    <button type="submit" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">Convert</button>
+  </form>
+</div>
+
+<div class="bg-white p-4 rounded-lg shadow-md text-center">
+  <h2 class="text-xl font-semibold text-blue-500">Excel to PDF</h2>
+  <form action="/excel_to_pdf" method="post" enctype="multipart/form-data" onsubmit="showLoading(this)">
+    <input type="file" name="excel" accept=".xls,.xlsx" class="mt-2 block mx-auto" required>
+    <button type="submit" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">Convert</button>
+  </form>
+</div>
+
+
+<div class="bg-white p-4 rounded-lg shadow-md text-center">
+  <h2 class="text-xl font-semibold text-blue-500">Remove Pages from PDF</h2>
+  <form action="/remove_pages" method="post" enctype="multipart/form-data" onsubmit="showLoading(this)">
+    <input type="file" name="pdf" accept="application/pdf" class="mt-2 block mx-auto" required>
+    <input type="text" name="pages" placeholder="Pages to remove (e.g., 2,4,6)" class="mt-2 block mx-auto border rounded p-1 w-3/4" required>
+    <button type="submit" class="mt-4 px-4 py-2 bg-red-500 text-white rounded">Remove Pages</button>
+  </form>
+</div>
+
+<div class="bg-white p-4 rounded-lg shadow-md text-center">
+  <h2 class="text-xl font-semibold text-blue-500">Rotate Image</h2>
+  <form action="/rotate_image" method="post" enctype="multipart/form-data" onsubmit="showLoading(this)">
+    <input type="file" name="image" accept="image/*" class="mt-2 block mx-auto" required>
+    <input type="number" name="angle" placeholder="Angle (e.g. 90, 180)" class="mt-2 block mx-auto border rounded p-1 w-3/4" required>
+    <button type="submit" class="mt-4 px-4 py-2 bg-yellow-500 text-white rounded">Rotate</button>
+  </form>
+</div>
+
+
+<div class="bg-white p-4 rounded-lg shadow-md text-center">
+  <h2 class="text-xl font-semibold text-blue-500">Rotate PDF (Custom Per Page)</h2>
+  <form action="/rotate_pdf" method="post" enctype="multipart/form-data" onsubmit="showLoading(this)">
+    <input type="file" name="pdf" accept="application/pdf" class="mt-2 block mx-auto" required>
+    <input type="text" name="rotations" placeholder="e.g. 1:90,2:180,5:270" class="mt-2 block mx-auto border rounded p-1 w-3/4" required>
+    <button type="submit" class="mt-4 px-4 py-2 bg-purple-600 text-white rounded">Rotate Pages</button>
+  </form>
+</div>
+
+
+
+
+
+</div>
 
     <div class="mt-8 text-center">
       <a href="/saved_files" class="text-blue-500 underline">📁 View Saved Files</a>
@@ -167,14 +250,14 @@ def merge():
 
 @app.route('/pdf_to_word', methods=['POST'])
 def pdf_to_word():
-    file = request.files['pdf']
-    if file:
-        filename = f"converted_{uuid.uuid4().hex}.docx"
-        input_path = os.path.join(UPLOAD_FOLDER, file.filename)
-        output_path = os.path.join(SAVED_FOLDER, filename)
-        file.save(input_path)
-        convert_pdf_to_word(input_path, output_path)
-        return redirect(url_for('download_file', filename=filename))
+      file = request.files['pdf']
+      if file:
+       filename = f"converted_{uuid.uuid4().hex}.docx"
+      input_path = os.path.join(UPLOAD_FOLDER, file.filename)
+      output_path = os.path.join(SAVED_FOLDER, filename)
+      file.save(input_path)
+      convert_pdf_to_word(input_path, output_path)
+      return redirect(url_for('download_file', filename=filename))
 
 @app.route('/image_to_pdf', methods=['POST'])
 def image_to_pdf():
@@ -192,6 +275,137 @@ def image_to_pdf():
         return redirect(url_for('download_file', filename=filename))
     else:
         return "No valid images uploaded", 400
+
+
+
+@app.route('/pdf_to_excel', methods=['POST'])
+def pdf_to_excel():
+        file = request.files['pdf']
+        if file:
+            filename = f"excel_{uuid.uuid4().hex}.xlsx"
+            input_path = os.path.join(UPLOAD_FOLDER, file.filename)
+            output_path = os.path.join(SAVED_FOLDER, filename)
+            file.save(input_path)
+            convert_pdf_to_excel(input_path, output_path)
+            return redirect(url_for('download_file', filename=filename))
+        else:
+            return "No PDF file uploaded", 400
+
+@app.route('/ocr_image_to_docx', methods=['POST'])
+def ocr_image_to_docx_route():
+        file = request.files['image']
+        if file:
+            filename = f"ocr_{uuid.uuid4().hex}.docx"
+            output_path = os.path.join(SAVED_FOLDER, filename)
+            ocr_image_to_docx(file.stream, output_path)
+            return redirect(url_for('download_file', filename=filename))
+            return "No image uploaded", 400
+
+@app.route('/jpg_to_pdf', methods=['POST'])
+def jpg_to_pdf():
+    files = request.files.getlist('images')
+    if not files:
+        return "No images uploaded", 400
+
+    filename = f"jpg_to_pdf_{uuid.uuid4().hex}.pdf"
+    output_path = os.path.join(SAVED_FOLDER, filename)
+
+    convert_jpgs_to_pdf(files, output_path)
+
+    return redirect(url_for('download_file', filename=filename))
+
+@app.route('/word_to_pdf', methods=['POST'])
+def word_to_pdf():
+    file = request.files['word']
+    if file and file.filename.endswith('.docx'):
+        input_path = os.path.join(UPLOAD_FOLDER, file.filename)
+        output_filename = f"converted_{uuid.uuid4().hex}.pdf"
+        output_path = os.path.join(SAVED_FOLDER, output_filename)
+
+        file.save(input_path)
+        convert_word_to_pdf(input_path, output_path)
+
+        return redirect(url_for('download_file', filename=output_filename))
+    else:
+        return "Please upload a valid .docx file", 400
+
+
+@app.route('/excel_to_pdf', methods=['POST'])
+def excel_to_pdf():
+    file = request.files['excel']
+    if file and file.filename.endswith(('.xls', '.xlsx')):
+        input_path = os.path.join(UPLOAD_FOLDER, file.filename)
+        output_filename = f"excelpdf_{uuid.uuid4().hex}.pdf"
+        output_path = os.path.join(SAVED_FOLDER, output_filename)
+
+        file.save(input_path)
+        convert_excel_to_pdf(input_path, output_path)
+
+        return redirect(url_for('download_file', filename=output_filename))
+    return "Please upload a valid Excel file", 400
+
+
+@app.route('/remove_pages', methods=['POST'])
+def remove_pages():
+    file = request.files['pdf']
+    pages_str = request.form.get('pages')  # e.g., "1,3,5"
+    if file and pages_str:
+        pages_to_remove = [int(p.strip()) - 1 for p in pages_str.split(',') if p.strip().isdigit()]
+
+        input_path = os.path.join(UPLOAD_FOLDER, file.filename)
+        output_filename = f"removed_pages_{uuid.uuid4().hex}.pdf"
+        output_path = os.path.join(SAVED_FOLDER, output_filename)
+
+        file.save(input_path)
+        remove_pages_from_pdf(input_path, output_path, pages_to_remove)
+
+        return redirect(url_for('download_file', filename=output_filename))
+    return "Invalid input", 400
+
+
+@app.route('/rotate_image', methods=['POST'])
+def rotate_image_route():
+    file = request.files.get('image')
+    angle = request.form.get('angle', type=int)
+
+    if not file or not angle:
+        return "Please upload an image and specify a rotation angle.", 400
+
+    filename = f"rotated_{uuid.uuid4().hex}.jpg"
+    output_path = os.path.join(SAVED_FOLDER, filename)
+
+    rotate_image(file, angle, output_path)
+
+    return redirect(url_for('download_file', filename=filename))
+
+
+@app.route('/rotate_pdf', methods=['POST'])
+def rotate_pdf():
+    file = request.files['pdf']
+    rotation_str = request.form.get('rotations', '')  # e.g., "1:90, 2:180"
+
+    if not file or not rotation_str:
+        return "Please upload a PDF and specify page:angle pairs.", 400
+
+    rotation_map = parse_rotation_map(rotation_str)
+    if not rotation_map:
+        return "Invalid rotation format.", 400
+
+    input_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    output_filename = f"rotated_pdf_{uuid.uuid4().hex}.pdf"
+    output_path = os.path.join(SAVED_FOLDER, output_filename)
+
+    file.save(input_path)
+    rotate_pdf_pages_per_page(input_path, output_path, rotation_map)
+
+    return redirect(url_for('download_file', filename=output_filename))
+
+
+
+
+
+
+
 
 def compress_pdf(input_path: str, output_path: str, dpi: int = 72, quality: int = 50):
     doc = fitz.open(input_path)
@@ -221,7 +435,114 @@ def convert_pdf_to_word(pdf_path: str, word_path: str):
         text = page.get_text()
         doc.add_paragraph(text)
     doc.save(word_path)
+
+def convert_pdf_to_excel(pdf_path: str, excel_path: str):
+        all_tables = []
+
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                tables = page.extract_tables()
+                for table in tables:
+                    if table:
+                        df = pd.DataFrame(table)
+                        all_tables.append(df)
+
+        if all_tables:
+            with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+                for i, df in enumerate(all_tables):
+                    df.to_excel(writer, sheet_name=f"Page_{i + 1}", index=False, header=False)
+        else:
+            # Create an empty Excel file with a message
+            df = pd.DataFrame([["No tables found in the PDF."]])
+            df.to_excel(excel_path, index=False, header=False)
+
+def ocr_image_to_docx(image_stream, output_path):
+                pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+                # Read image from stream
+                img = Image.open(image_stream).convert('RGB')
+                open_cv_image = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+
+                # Run OCR
+                text = pytesseract.image_to_string(open_cv_image)
+
+                # Save to DOCX
+                doc = Document()
+                doc.add_paragraph(text)
+                doc.save(output_path)
+
+def convert_jpgs_to_pdf(files, output_path):
+    images = []
+
+    for file in files:
+        img = Image.open(file.stream).convert('RGB')
+        images.append(img)
+
+    if images:
+        # Save all images into one PDF
+        images[0].save(output_path, save_all=True, append_images=images[1:])
+
+def convert_word_to_pdf(input_path, output_path):
+    # convert() saves PDF in the same folder by default, so we use output_path
+    convert(input_path, output_path)
+
+
+import win32com.client as win32
+
+def convert_excel_to_pdf(input_path, output_path):
+    excel = win32.gencache.EnsureDispatch('Excel.Application')
+    excel.Visible = False
+    wb = excel.Workbooks.Open(input_path)
+
+    try:
+        wb.ExportAsFixedFormat(0, output_path)
+    finally:
+        wb.Close(False)
+        excel.Quit()
+
+def remove_pages_from_pdf(input_path, output_path, pages_to_remove):
+    reader = PdfReader(input_path)
+    writer = PdfWriter()
+
+    for i in range(len(reader.pages)):
+        if i not in pages_to_remove:
+            writer.add_page(reader.pages[i])
+
+    with open(output_path, "wb") as f:
+        writer.write(f)
+
+
+def rotate_image(image_file, angle, output_path):
+    image = Image.open(image_file.stream).convert('RGB')
+    rotated = image.rotate(angle, expand=True)
+    rotated.save(output_path, format="JPEG")
+
+def rotate_pdf_pages_per_page(input_path, output_path, rotation_map):
+    reader = PdfReader(input_path)
+    writer = PdfWriter()
+
+    for i in range(len(reader.pages)):
+        page = reader.pages[i]
+        angle = rotation_map.get(i, 0)
+        if angle:
+            page.rotate(angle)
+        writer.add_page(page)
+
+    with open(output_path, "wb") as f:
+        writer.write(f)
+
+def parse_rotation_map(rotation_str):
+    rotation_map = {}
+    for item in rotation_str.split(','):
+        if ':' in item:
+            page_str, angle_str = item.split(':')
+            if page_str.strip().isdigit() and angle_str.strip().lstrip('-').isdigit():
+                page = int(page_str.strip()) - 1  # user input is 1-based
+                angle = int(angle_str.strip())
+                if angle % 90 == 0:
+                    rotation_map[page] = angle
+    return rotation_map
+
+
+
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)
-  
+    app.run(debug=True)
