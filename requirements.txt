@@ -9,3 +9,4 @@ pandas
 numpy
 pytesseract
 opencv-python
+pdf2image
