@@ -10,3 +10,4 @@ numpy
 pytesseract
 opencv-python
 pdf2image
+docx2pdf
