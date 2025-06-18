@@ -462,7 +462,7 @@ def convert_jpgs_to_pdf(files, output_path):
 
 
 
-import win32com.client as win32
+
 
 def convert_excel_to_pdf(input_path, output_path):
     excel = win32.gencache.EnsureDispatch('Excel.Application')
