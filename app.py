@@ -103,13 +103,7 @@ HTML_TEMPLATE = '''
   </form>
 </div>
 
-<div class="bg-white p-4 rounded-lg shadow-md text-center">
-  <h2 class="text-xl font-semibold text-blue-500">Word to PDF</h2>
-  <form action="/word_to_pdf" method="post" enctype="multipart/form-data" onsubmit="showLoading(this)">
-    <input type="file" name="word" accept=".docx" class="mt-2 block mx-auto" required>
-    <button type="submit" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">Convert</button>
-  </form>
-</div>
+
 
 <div class="bg-white p-4 rounded-lg shadow-md text-center">
   <h2 class="text-xl font-semibold text-blue-500">Excel to PDF</h2>
@@ -314,20 +308,6 @@ def jpg_to_pdf():
 
     return redirect(url_for('download_file', filename=filename))
 
-@app.route('/word_to_pdf', methods=['POST'])
-def word_to_pdf():
-    file = request.files['word']
-    if file and file.filename.endswith('.docx'):
-        input_path = os.path.join(UPLOAD_FOLDER, file.filename)
-        output_filename = f"converted_{uuid.uuid4().hex}.pdf"
-        output_path = os.path.join(SAVED_FOLDER, output_filename)
-
-        file.save(input_path)
-        convert_word_to_pdf(input_path, output_path)
-
-        return redirect(url_for('download_file', filename=output_filename))
-    else:
-        return "Please upload a valid .docx file", 400
 
 
 @app.route('/excel_to_pdf', methods=['POST'])
@@ -481,9 +461,6 @@ def convert_jpgs_to_pdf(files, output_path):
         # Save all images into one PDF
         images[0].save(output_path, save_all=True, append_images=images[1:])
 
-def convert_word_to_pdf(input_path, output_path):
-    # convert() saves PDF in the same folder by default, so we use output_path
-    convert(input_path, output_path)
 
 
 import win32com.client as win32
