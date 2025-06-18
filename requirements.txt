@@ -11,3 +11,4 @@ pytesseract
 opencv-python
 pdf2image
 docx2pdf
+win32com
