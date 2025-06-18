@@ -18,7 +18,6 @@ import cv2
 import numpy as np
 from pdf2image import convert_from_path
 from PIL import Image
-from docx2pdf import convert
 from PyPDF2 import PdfReader, PdfWriter
 
 app = Flask(__name__)
